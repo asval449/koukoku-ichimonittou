@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>日本史一問一答</title>
+<style>
+:root{--bg:#f4f9fd;--fg:#1d2b3a;--card:#fff;--line:#d5e4f1;--main:#4aa3df;--soft:#e4f2fc;--navy:#1f3a5f;--ok:#1e9e5a;--okbg:#e5f6ec;--ng:#d64545;--ngbg:#fdeaea;--mute:#6b7c8d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10181f;--fg:#e6eef5;--card:#18232d;--line:#2b3a47;--soft:#1d3042;--navy:#9cc3ea;--okbg:#14352399;--ngbg:#3d1c1c99;--mute:#93a4b4}}
+:root[data-theme="dark"]{--bg:#10181f;--fg:#e6eef5;--card:#18232d;--line:#2b3a47;--soft:#1d3042;--navy:#9cc3ea;--okbg:#14352399;--ngbg:#3d1c1c99;--mute:#93a4b4}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.7 "Hiragino Sans","Noto Sans JP",sans-serif}
+#app{max-width:640px;margin:0 auto;padding:14px 14px 90px}
+h1{font-size:20px;color:var(--navy);margin:6px 0 12px}h2{font-size:16px;color:var(--navy);margin:16px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}
+.btn{display:block;width:100%;padding:13px;border:1px solid var(--main);background:var(--main);color:#fff;border-radius:10px;font:inherit;font-weight:600;cursor:pointer;margin:8px 0;text-align:center}
+.btn.sub{background:var(--card);color:var(--main)}.btn.ok{background:var(--ok);border-color:var(--ok)}.btn.ng{background:var(--ng);border-color:var(--ng)}
+.btn.sm{display:inline-block;width:auto;padding:6px 12px;margin:2px;font-size:14px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;margin:3px 0 8px}
+label{font-size:13px;color:var(--mute);display:block}
+.chips label{display:inline-block;margin:3px;padding:6px 11px;border:1px solid var(--line);border-radius:20px;color:var(--fg);font-size:14px}
+.chips input{width:auto;margin:0 4px 0 0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:var(--soft);border-radius:10px;padding:10px;text-align:center}.stat b{display:block;font-size:22px;color:var(--navy)}.stat span{font-size:12px;color:var(--mute)}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav button{flex:1;border:0;background:none;padding:12px 2px;font:inherit;font-size:11px;color:var(--mute);cursor:pointer}nav button.on{color:var(--main);font-weight:700}
+.bar{height:8px;background:var(--soft);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--main)}
+.opt{display:block;width:100%;text-align:left;padding:12px;margin:6px 0;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:10px;font:inherit;cursor:pointer}.opt.sel{border-color:var(--main);background:var(--soft)}
+.res{border-radius:10px;padding:12px;margin:10px 0}.res.ok{background:var(--okbg);border:1px solid var(--ok)}.res.ng{background:var(--ngbg);border:1px solid var(--ng)}
+.badge{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--soft);color:var(--navy);margin-right:4px}
+.mute{color:var(--mute);font-size:13px}.err{color:var(--ng);font-size:14px}.okc{color:var(--ok)}.ngc{color:var(--ng)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:var(--navy);color:var(--bg);padding:8px 16px;border-radius:20px;font-size:14px;display:none;z-index:9}
+</style></head><body>
+<div id="app"></div><div id="toast"></div>
+<nav id="nav"></nav>
+<script>
+const ERAS=["旧石器","縄文・弥生・古墳","飛鳥","奈良","平安","鎌倉","室町","戦国・安土桃山","江戸","明治","大正・昭和","戦後"];
+const MODES={choice:"選択式",key:"キーボード式",essay:"記述式"},KINDS={past:"大学過去問",term:"用語"};
+let sh={kind:'all',eras:[],code:'',inp:'',msg:'',prev:null,cnt:0};let col=null,scol=null,Q=[],H=[],view="home",ses=null,edit=null,delId=null,fl={kind:"all"},cfg={kind:"all",eras:[],n:10,ord:"rand",scope:"all"},draft=null,cloud=false;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const shuf=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const norm=s=>String(s).normalize("NFKC").replace(/\s/g,"").toLowerCase();
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";setTimeout(()=>t.style.display="none",2200)}
+function emptyDraft(){return{kind:"past",mode:"choice",q:"",a:"",c:["","","","",""],w:["","","","",""],exp:"",era:"",univ:"",year:"",fac:"",exam:"",prev:false,err:""}}
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||"[]")}catch(e){return[]}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+async function init(){
+  draft=emptyDraft();
+  try{
+    const c=window.claude,db=c&&await c.use("db"),us=c&&await c.use("user"),id=us&&await us.id();
+    if(db&&id){cloud=true;col=db.collection("data/users/"+id+"/questions");scol=db.collection("data/users/"+id+"/sessions");
+      col.onSnapshot(s=>{Q=s.docs.map(d=>({...d.data(),id:d.id}));render()},()=>{});
+      scol.onSnapshot(s=>{H=s.docs.map(d=>d.data()).sort((a,b)=>b.ts-a.ts);render()},()=>{});}
+  }catch(e){}
+  if(cloud){try{const lq=lsGet("q"),lh=lsGet("h");if(lq.length||lh.length){for(const q of lq)await col.doc(q.id).set(q);for(const h of lh)await scol.doc("s"+h.ts).set(h);lsSet("q",[]);lsSet("h",[]);toast("この端末のデータをアカウントに同期しました")}}catch(e){toast("端末内データの同期に失敗しました")}}else{Q=lsGet("q");H=lsGet("h")}
+  render();
+}
+async function put(q){
+  if(cloud){try{await col.doc(q.id).set(q)}catch(e){toast("保存に失敗しました")}}
+  else{const i=Q.findIndex(x=>x.id===q.id);i<0?Q.push(q):Q[i]=q;lsSet("q",Q);render()}
+}
+async function del(id){
+  if(cloud){try{await col.doc(id).delete()}catch(e){toast("削除に失敗しました")}}
+  else{Q=Q.filter(x=>x.id!==id);lsSet("q",Q);render()}
+}
+async function saveSes(s){
+  if(cloud){try{await scol.doc("s"+s.ts).set(s)}catch(e){}}else{H.unshift(s);lsSet("h",H)}
+}
+const pct=(a,b)=>b?Math.round(a/b*100):null;
+function tot(){let t=0,r=0;Q.forEach(q=>{t+=q.tries||0;r+=q.right||0});return{t,r}}
+function eraStats(){return ERAS.map(e=>{let t=0,r=0;Q.filter(q=>q.era===e).forEach(q=>{t+=q.tries||0;r+=q.right||0});return{e,t,r,p:pct(r,t),n:Q.filter(q=>q.era===e).length}})}
+function ans(q){return q.mode==="choice"?q.c.join("、"):q.a}
+function nav(){const t=[["home","ホーム"],["setup","演習"],["add","登録"],["list","問題集"],["wrong","復習"],["my","成績"],["share","共有"]];
+  $("#nav").innerHTML=t.map(([k,l])=>`<button data-a="go" data-v="${k}" class="${view===k||(view==="quiz"&&k==="setup")?"on":""}">${l}</button>`).join("")}
+function render(){nav();const f={home,add:addV,list,wrong,my,setup,quiz,result,share:shareV}[view]||home;$("#app").innerHTML=f()}
+function notice(){return cloud?`<div class="card mute">claude.aiアカウントで同期中です。同じアカウントでログインした別の端末でも、登録した問題と学習履歴を使えます。</div>`:`<div class="card mute">claude.aiにログインしていないか、アカウント情報を取得できないため、データはこの端末のブラウザにのみ保存されています。claude.aiにログインした状態でこのページを開くと、アカウントで同期されます（この端末のデータは自動で引き継がれます）。</div>`}
+function home(){const{t,r}=tot(),w=Q.filter(q=>q.wrong>0).length;
+  return`<h1>日本史一問一答</h1>${notice()}
+  <div class="stats"><div class="stat"><b>${Q.length}</b><span>登録問題</span></div><div class="stat"><b>${t}</b><span>解いた回数</span></div><div class="stat"><b>${pct(r,t)==null?"-":pct(r,t)+"%"}</b><span>正答率</span></div></div>
+  ${H[0]?`<div class="card mute">直近：${new Date(H[0].ts).toLocaleDateString("ja-JP")}　${H[0].total}問中${H[0].ok}問正解（${pct(H[0].ok,H[0].total)}%）</div>`:""}
+  <button class="btn" data-a="go" data-v="setup">問題を解く</button>
+  <button class="btn sub" data-a="go" data-v="add">問題を登録する</button>
+  <button class="btn sub" data-a="go" data-v="list">自分の問題集（${Q.length}）</button>
+  <button class="btn sub" data-a="go" data-v="wrong">間違えた問題を復習する（${w}）</button>
+  <button class='btn sub' data-a='go' data-v='share'>データを共有する（共有コード）</button><button class="btn sub" data-a="go" data-v="my">マイページ</button>`}
+function addV(){const d=draft;
+  if(d.prev)return`<h1>プレビュー</h1><div class="card"><span class="badge">${KINDS[d.kind]}</span><span class="badge">${MODES[d.mode]}</span><span class="badge">${esc(d.era)}</span>${d.kind==="past"?src(d):""}
+  <p>${esc(d.q).replace(/\n/g,"<br>")}</p>${d.mode==="choice"?`<div class="mute">正解</div>${d.c.filter(x=>x.trim()).map(x=>`<div class="okc">○ ${esc(x)}</div>`).join("")}<div class="mute">誤答</div>${d.w.filter(x=>x.trim()).map(x=>`<div class="ngc">× ${esc(x)}</div>`).join("")}`:`<div class="mute">正解</div><div class="okc">${esc(d.a)}</div>`}
+  ${d.exp?`<div class="mute">解説</div><div>${esc(d.exp)}</div>`:""}</div>
+  <button class="btn ok" data-a="commit">${edit?"この内容で更新":"この内容で保存"}</button><button class="btn sub" data-a="back">修正する</button>`;
+  return`<h1>${edit?"問題編集":"問題登録"}</h1><div class="card">
+  <label>登録方法</label><select name="kind" data-r="1"><option value="past" ${d.kind==="past"?"selected":""}>大学過去問</option><option value="term" ${d.kind==="term"?"selected":""}>用語</option></select>
+  <label>解答方法</label><select name="mode" data-r="1">${Object.entries(MODES).map(([k,v])=>`<option value="${k}" ${d.mode===k?"selected":""}>${v}</option>`).join("")}</select>
+  <label>問題文（必須）</label><textarea name="q" rows="4">${esc(d.q)}</textarea>
+  ${d.mode==="choice"?`<label>正解の選択肢（最大5個・1つ以上）</label>${d.c.map((x,i)=>`<input name="c${i}" value="${esc(x)}" placeholder="正解 ${i+1}">`).join("")}<label>誤答の選択肢（最大5個・1つ以上）</label>${d.w.map((x,i)=>`<input name="w${i}" value="${esc(x)}" placeholder="誤答 ${i+1}">`).join("")}`
+  :`<label>正解（必須）${d.mode==="key"?"　別表記は / で区切って複数登録できます":""}</label>${d.mode==="essay"?`<textarea name="a" rows="3">${esc(d.a)}</textarea>`:`<input name="a" value="${esc(d.a)}">`}`}
+  <label>解説（任意）</label><textarea name="exp" rows="3">${esc(d.exp)}</textarea>
+  <label>時代（必須）</label><select name="era"><option value="">選択してください</option>${ERAS.map(e=>`<option ${d.era===e?"selected":""}>${e}</option>`).join("")}</select>
+  ${d.kind==="past"?`<label>出題大学（必須）</label><input name="univ" value="${esc(d.univ)}"><label>出題年（必須）</label><input name="year" inputmode="numeric" value="${esc(d.year)}"><label>学部（任意）</label><input name="fac" value="${esc(d.fac)}" placeholder="例：文学部"><label>入試形態（任意）</label><input name="exam" value="${esc(d.exam)}" placeholder="例：一般入試、共通テスト利用">`:""}
+  ${d.err?`<div class="err">${esc(d.err)}</div>`:""}</div>
+  <button class="btn" data-a="preview">プレビューを確認</button>${edit?`<button class="btn sub" data-a="cancel">キャンセル</button>`:""}`}
+function validate(d){
+  if(!d.q.trim())return"問題文を入力してください";
+  if(d.mode==="choice"){if(!d.c.some(x=>x.trim()))return"正解の選択肢を1つ以上入力してください";if(!d.w.some(x=>x.trim()))return"誤答の選択肢を1つ以上入力してください"}
+  else if(!d.a.trim())return"正解を入力してください";
+  if(!d.era)return"時代を選択してください";
+  if(d.kind==="past"){if(!d.univ.trim())return"出題大学を入力してください";if(!/^\d{3,4}$/.test(d.year.trim()))return"出題年を数字で入力してください"}
+  return""}
+function list(){const L=Q.filter(q=>fl.kind==="all"||q.kind===fl.kind);
+  const tabs=[["all","すべて"],["past","大学過去問"],["term","用語"]].map(([k,l])=>`<button class="btn sm ${fl.kind===k?"":"sub"}" data-a="fk" data-v="${k}">${l}</button>`).join("");
+  if(!Q.length)return`<h1>問題集</h1><div class="card">問題が登録されていません。</div><button class="btn" data-a="go" data-v="add">問題を登録する</button>`;
+  return`<h1>問題集</h1>${tabs}${ERAS.map(e=>{const g=L.filter(q=>q.era===e);return g.length?`<h2>${e}（${g.length}）</h2>`+g.map(q=>`<div class="card"><span class="badge">${KINDS[q.kind]}</span><span class="badge">${MODES[q.mode]}</span>${q.kind==="past"?src(q):""}<div>${esc(q.q.slice(0,80))}${q.q.length>80?"…":""}</div><div class="mute">正解：${esc(ans(q))}</div>
+  <button class="btn sm sub" data-a="edit" data-v="${q.id}">編集</button>${delId===q.id?`<button class="btn sm ng" data-a="del2" data-v="${q.id}">本当に削除</button>`:`<button class="btn sm sub" data-a="del" data-v="${q.id}">削除</button>`}</div>`).join(""):""}).join("")}`}
+function setup(){const c=cfg;
+  if(!Q.length)return`<h1>問題を解く</h1><div class="card">問題が登録されていません。先に問題を登録してください。</div><button class="btn" data-a="go" data-v="add">問題を登録する</button>`;
+  return`<h1>問題を解く</h1><div class="card"><label>種類</label><select name="k"><option value="all">すべて</option><option value="past" ${c.kind==="past"?"selected":""}>大学過去問</option><option value="term" ${c.kind==="term"?"selected":""}>用語</option></select>
+  <label>時代（未選択＝すべて）</label><div class="chips">${ERAS.map(e=>`<label><input type="checkbox" data-e="${e}" ${c.eras.includes(e)?"checked":""}>${e}</label>`).join("")}</div>
+  <label>問題数</label><select name="n">${[5,10,20,30,50,100].map(n=>`<option ${c.n===n?"selected":""}>${n}</option>`).join("")}</select>
+  <label>出題順</label><select name="ord"><option value="rand">ランダム</option><option value="reg" ${c.ord==="reg"?"selected":""}>登録順</option></select>
+  <label>対象</label><select name="scope"><option value="all">全問題</option><option value="wrong" ${c.scope==="wrong"?"selected":""}>間違えた問題のみ</option></select></div>
+  <button class="btn" data-a="start">演習を始める</button>`}
+function pool(o){let L=Q.filter(q=>(o.kind==="all"||q.kind===o.kind)&&(!o.eras.length||o.eras.includes(q.era))&&(o.scope==="all"||q.wrong>0));
+  L=o.ord==="rand"?shuf(L):[...L].sort((a,b)=>(a.ts||0)-(b.ts||0));return L.slice(0,o.n)}
+function begin(L){if(!L.length){toast("条件に合う問題がありません");return}ses={L,i:0,ok:0,ng:0,res:[]};prep();view="quiz";render()}
+function prep(){const q=ses.L[ses.i];ses.opts=q.mode==="choice"?shuf([...q.c.map(t=>({t,ok:1})),...q.w.map(t=>({t,ok:0}))]):[];ses.sel=[];ses.done=null;ses.txt=""}
+function quiz(){const q=ses.L[ses.i],s=ses,n=s.L.length;
+  let body="";
+  if(q.mode==="choice")body=s.opts.map((o,i)=>`<button class="opt ${s.sel.includes(i)?"sel":""}" data-a="pick" data-v="${i}" ${s.done?"disabled":""}>${esc(o.t)}</button>`).join("")+(q.c.length>1?`<div class="mute">正解は複数あります。すべて選んでください。</div>`:"");
+  else if(q.mode==="key")body=`<input id="ans" placeholder="答えを入力" value="${esc(s.txt)}" ${s.done?"disabled":""} autocomplete="off">`;
+  else body=`<textarea id="ans" rows="4" placeholder="答えを書いてください" ${s.done?"disabled":""}>${esc(s.txt)}</textarea>`;
+  let act="";
+  if(!s.done){act=q.mode==="essay"?`<button class="btn" data-a="show">解答を表示</button>`:`<button class="btn" data-a="submit">回答を確定</button>`;act+=`<button class="btn sub" data-a="skip">スキップ</button>`}
+  else if(s.done==="self")act=`<div class="res"><b>模範解答：</b>${esc(q.a)}</div>${q.exp?`<div class="card">${esc(q.exp)}</div>`:""}<div class="row"><button class="btn ok" data-a="self" data-v="1">正解</button><button class="btn ng" data-a="self" data-v="0">不正解</button></div>`;
+  else{const ok=s.done==="ok";act=`<div class="res ${ok?"ok":"ng"}"><b>${ok?"正解":"不正解"}</b><div>正しい解答：${esc(ans(q))}</div></div>${q.exp?`<div class="card"><div class="mute">解説</div>${esc(q.exp)}</div>`:""}<button class="btn" data-a="next">${s.i+1>=n?"結果を見る":"次の問題へ"}</button>`}
+  return`<div class="mute">${s.i+1} / ${n}</div><div class="bar"><i style="width:${s.i/n*100}%"></i></div>
+  <div class="card"><span class="badge">${esc(q.era)}</span><span class="badge">${MODES[q.mode]}</span>${q.kind==="past"?src(q):""}<p>${esc(q.q).replace(/\n/g,"<br>")}</p></div>${body}${act}
+  <button class="btn sub" data-a="quit">演習を終了する</button>`}
+async function record(q,ok){
+  ses.res.push({id:q.id,ok});ok?ses.ok++:ses.ng++;
+  await put({...q,tries:(q.tries||0)+1,right:(q.right||0)+(ok?1:0),wrong:(q.wrong||0)+(ok?0:1),lastOk:ok});
+  ses.done=ok?"ok":"ng";render()}
+function result(){const s=ses,t=s.ok+s.ng,bad=s.res.filter(r=>!r.ok).map(r=>Q.find(q=>q.id===r.id)||s.L.find(q=>q.id===r.id)).filter(Boolean);
+  return`<h1>結果</h1><div class="stats"><div class="stat"><b>${t}</b><span>出題</span></div><div class="stat"><b class="okc">${s.ok}</b><span>正解</span></div><div class="stat"><b class="ngc">${s.ng}</b><span>不正解</span></div></div>
+  <div class="card"><b>正答率 ${pct(s.ok,t)==null?"-":pct(s.ok,t)+"%"}</b></div>
+  ${bad.length?`<h2>間違えた問題</h2>`+bad.map(q=>`<div class="card"><div>${esc(q.q)}</div><div class="okc">正解：${esc(ans(q))}</div>${q.exp?`<div class="mute">${esc(q.exp)}</div>`:""}</div>`).join(""):`<div class="card">全問正解です。</div>`}
+  ${bad.length?`<button class="btn" data-a="redo">間違えた問題をもう一度解く</button>`:""}<button class="btn sub" data-a="go" data-v="home">ホームへ</button>`}
+function wrong(){const L=Q.filter(q=>q.wrong>0);
+  if(!L.length)return`<h1>間違えた問題</h1><div class="card">間違えた問題はまだありません。</div>`;
+  return`<h1>間違えた問題（${L.length}）</h1><button class="btn" data-a="wrongall">間違えた問題だけ再演習</button>`+L.map(q=>`<details class="card"><summary>${q.lastOk?`<span class="badge okc">克服</span>`:""}<span class="badge">${esc(q.era)}</span>${esc(q.q.slice(0,50))}${q.q.length>50?"…":""}</summary>
+  <p>${esc(q.q)}</p><div class="okc">正解：${esc(ans(q))}</div>${q.exp?`<div class="mute">${esc(q.exp)}</div>`:""}<div class="mute">間違えた回数 ${q.wrong}／正解 ${q.right||0}／挑戦 ${q.tries}</div></details>`).join("")}
+function my(){const{t,r}=tot(),es=eraStats(),weak=es.filter(x=>x.t>0).sort((a,b)=>a.p-b.p).slice(0,3);
+  return`<h1>マイページ</h1>${notice()}<div class="stats"><div class="stat"><b>${Q.length}</b><span>登録</span></div><div class="stat"><b>${Q.filter(q=>q.tries>0).length}</b><span>解いた問題</span></div><div class="stat"><b>${pct(r,t)==null?"-":pct(r,t)+"%"}</b><span>正答率</span></div></div>
+  <div class="card">正解 ${r}回／不正解 ${t-r}回</div>
+  <h2>時代別の正答率</h2><div class="card">${es.map(x=>`<div class="row" style="align-items:center"><span style="flex:0 0 9em;font-size:14px">${x.e}</span><div class="bar"><i style="width:${x.p||0}%"></i></div><span style="flex:0 0 3.2em;text-align:right;font-size:14px">${x.p==null?"-":x.p+"%"}</span></div>`).join("")}</div>
+  ${weak.length?`<h2>苦手な時代</h2>`+weak.map(x=>`<button class="btn sub" data-a="weak" data-v="${x.e}">${x.e}（${x.p}%）から演習する</button>`).join(""):""}
+  <h2>学習履歴</h2>${H.length?H.slice(0,10).map(h=>`<div class="card">${new Date(h.ts).toLocaleString("ja-JP")}　${h.total}問中${h.ok}問正解（${pct(h.ok,h.total)}%）</div>`).join(""):`<div class="card mute">履歴はまだありません。</div>`}`}
+const b64=u=>{let s='';u.forEach(b=>s+=String.fromCharCode(b));return btoa(s).split('+').join('-').split('/').join('_').split('=').join('')};
+const unb64=t=>{t=t.split('-').join('+').split('_').join('/');while(t.length%4)t+='=';return Uint8Array.from(atob(t),c=>c.charCodeAt(0))};
+async function pipe(u,S,m){const r=new Response(new Blob([u]).stream().pipeThrough(new S(m)));return new Uint8Array(await r.arrayBuffer())}
+async function enc(o){const u=new TextEncoder().encode(JSON.stringify(o));if(window.CompressionStream)return 'NSQ1:'+b64(await pipe(u,CompressionStream,'gzip'));return 'NSR1:'+b64(u)}
+async function dec(t){t=t.replace(/\s/g,'');const i=t.indexOf(':'),p=t.slice(0,i);let u=unb64(t.slice(i+1));if(p==='NSQ1')u=await pipe(u,DecompressionStream,'gzip');else if(p!=='NSR1')throw 0;return JSON.parse(new TextDecoder().decode(u))}
+function shareV(){const s=sh,P=s.prev;return`<h1>データ共有</h1><div class='card'><b>共有コードとは？</b><div class='mute'>登録した問題を1つの文字列（コード）にしたものです。LINEやメモで送れば、別の端末や友達のアプリに問題を移せます。ログインは不要です。</div></div><div class='card'><h2 style='margin-top:0'>① 問題を渡す（コードを作る）</h2><label>種類</label><select name='k'><option value='all'>すべて</option><option value='past' ${s.kind==='past'?'selected':''}>大学過去問</option><option value='term' ${s.kind==='term'?'selected':''}>用語</option></select><label>時代（未選択＝すべて）</label><div class='chips'>${ERAS.map(e=>`<label><input type='checkbox' data-e='${e}' ${s.eras.includes(e)?'checked':''}>${e}</label>`).join('')}</div><button class='btn' data-a='mk'>共有コードを作る</button>${s.code?`<div class='res ok'><b>${s.cnt}問のコードができました</b><div class='mute'>コピーして相手に送ってください</div></div><textarea id='code' rows='4' readonly>${esc(s.code)}</textarea><button class='btn' data-a='cp'>コードをコピー</button>`:''}</div><div class='card'><h2 style='margin-top:0'>② 問題を受け取る（コードを入力する）</h2><textarea name='inp' rows='4' placeholder='共有コードを貼り付けてください'>${esc(s.inp)}</textarea><button class='btn' data-a='chk'>内容を確認する</button>${s.msg?`<div class='err'>${esc(s.msg)}</div>`:''}${P?`<div class='res ok'><b>${P.items.length}問を取り込めます</b><div class='mute'>重複している${P.dup}問は除きます。いまある問題は消えません。</div></div>${P.items.length?`<button class='btn ok' data-a='imp'>${P.items.length}問を取り込む</button>`:''}`:''}</div>`}
+async function mk(){const L=Q.filter(q=>(sh.kind==='all'||q.kind===sh.kind)&&(!sh.eras.length||sh.eras.includes(q.era)));if(!L.length){sh.code='';toast('対象の問題がありません');render();return}sh.code=await enc(L.map(q=>({k:q.kind,m:q.mode,q:q.q,a:q.a,c:q.c,w:q.w,x:q.exp,g:q.era,u:q.univ,y:q.year,f:q.fac,n:q.exam})));sh.cnt=L.length;sh.msg='';render()}
+async function cp(){const t=document.getElementById('code');try{await navigator.clipboard.writeText(sh.code);toast('コピーしました')}catch(e){try{t.select();document.execCommand('copy');toast('コピーしました')}catch(e2){toast('コードを長押ししてコピーしてください')}}}
+function clean(r){if(!r||typeof r!=='object')return null;const s=x=>typeof x==='string'?x.trim().slice(0,2000):'';const l=x=>(Array.isArray(x)?x:[]).map(s).filter(Boolean).slice(0,5);const o={kind:r.k==='term'?'term':'past',mode:MODES[r.m]?r.m:'',q:s(r.q),exp:s(r.x),era:ERAS.includes(r.g)?r.g:''};if(!o.mode||!o.q||!o.era)return null;if(o.mode==='choice'){o.c=l(r.c);o.w=l(r.w);if(!o.c.length||!o.w.length)return null}else{o.a=s(r.a);if(!o.a)return null}if(o.kind==='past'){o.univ=s(r.u);o.year=s(r.y);o.fac=s(r.f);o.exam=s(r.n)}return o}
+async function chk(){sh.prev=null;sh.msg='';let a;try{a=await dec(sh.inp)}catch(e){sh.msg='コードを読み取れませんでした。最初から最後まで貼り付けたか確認してください。';render();return}const items=[];let dup=0;const seen=new Set(Q.map(q=>q.kind+'|'+q.q+'|'+q.era));(Array.isArray(a)?a:[]).slice(0,2000).forEach(r=>{const o=clean(r);if(!o)return;const k=o.kind+'|'+o.q+'|'+o.era;if(seen.has(k)){dup++;return}seen.add(k);items.push(o)});if(items.length||dup)sh.prev={items,dup};else sh.msg='取り込める問題が見つかりませんでした。';render()}
+async function imp(){const L=sh.prev.items;for(const o of L)await put({...o,id:uuid(),ts:Date.now(),tries:0,right:0,wrong:0,lastOk:false});sh.prev=null;sh.inp='';sh.code='';toast(L.length+'問を取り込みました');view='list';render()}
+function src(o){return`<span class='badge'>${esc(o.univ)} ${esc(o.year)}</span>`+(o.fac?`<span class='badge'>${esc(o.fac)}</span>`:'')+(o.exam?`<span class='badge'>${esc(o.exam)}</span>`:'')}
+function uuid(){return"q"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function act(a,v){
+  if(a==="go"){if(view==="quiz"&&!confirm("演習を中断しますか？"))return;view=v;edit=null;if(v==="add"){draft=emptyDraft()}render()}
+  else if(a==="fk"){fl.kind=v;render()}
+  else if(a==="preview"){const e=validate(draft);draft.err=e;draft.prev=!e;render()}
+  else if(a==="back"){draft.prev=false;render()}
+  else if(a==="cancel"){edit=null;draft=emptyDraft();view="list";render()}
+  else if(a==="commit"){const d=draft,old=edit?Q.find(x=>x.id===edit):null,o={id:edit||uuid(),kind:d.kind,mode:d.mode,q:d.q.trim(),exp:d.exp.trim(),era:d.era,ts:old?old.ts:Date.now(),tries:old?old.tries||0:0,right:old?old.right||0:0,wrong:old?old.wrong||0:0,lastOk:old?!!old.lastOk:false};
+    if(d.mode==="choice"){o.c=d.c.map(x=>x.trim()).filter(Boolean);o.w=d.w.map(x=>x.trim()).filter(Boolean)}else o.a=d.a.trim();
+    if(d.kind==="past"){o.univ=d.univ.trim();o.year=d.year.trim();o.fac=d.fac.trim();o.exam=d.exam.trim()}
+    put(o);toast(edit?"更新しました":"保存しました");edit=null;draft=emptyDraft();render()}
+  else if(a==="edit"){const q=Q.find(x=>x.id===v);if(!q)return;edit=v;draft={kind:q.kind,mode:q.mode,q:q.q,a:q.a||"",c:[...(q.c||[]),"","","","",""].slice(0,5),w:[...(q.w||[]),"","","","",""].slice(0,5),exp:q.exp||"",era:q.era,univ:q.univ||"",year:q.year||"",fac:q.fac||"",exam:q.exam||"",prev:false,err:""};view="add";render()}
+  else if(a==="del"){delId=v;render()}
+  else if(a==="del2"){del(v);delId=null;toast("削除しました")}
+  else if(a==='mk'){mk()}else if(a==='cp'){cp()}else if(a==='chk'){chk()}else if(a==='imp'){imp()}else if(a==="start"){begin(pool(cfg))}
+  else if(a==="wrongall"){begin(shuf(Q.filter(q=>q.wrong>0)))}
+  else if(a==="weak"){cfg={...cfg,kind:"all",eras:[v],scope:"all"};begin(pool(cfg))}
+  else if(a==="pick"){const i=+v,s=ses,q=s.L[s.i];if(s.done)return;if(q.c.length>1)s.sel=s.sel.includes(i)?s.sel.filter(x=>x!==i):[...s.sel,i];else s.sel=[i];render()}
+  else if(a==="submit"){const s=ses,q=s.L[s.i];let ok;
+    if(q.mode==="choice"){if(!s.sel.length){toast("選択してください");return}ok=s.opts.every((o,i)=>!!o.ok===s.sel.includes(i))}
+    else{const t=$("#ans").value;if(!t.trim()){toast("答えを入力してください");return}s.txt=t;ok=q.a.split(/[\/／]/).some(x=>norm(x)===norm(t))}
+    record(q,ok)}
+  else if(a==="show"){const t=$("#ans").value;if(!t.trim()){toast("答えを入力してください");return}ses.txt=t;ses.done="self";render()}
+  else if(a==="self"){record(ses.L[ses.i],v==="1")}
+  else if(a==="skip"||a==="next"){if(ses.i+1>=ses.L.length){fin()}else{ses.i++;prep();render()}}
+  else if(a==="quit"){if(confirm("演習を終了して結果を見ますか？"))fin()}
+  else if(a==="redo"){const ids=ses.res.filter(r=>!r.ok).map(r=>r.id);begin(shuf(Q.filter(q=>ids.includes(q.id))))}
+}
+function fin(){const s=ses;view="result";if(s.res.length)saveSes({ts:Date.now(),total:s.ok+s.ng,ok:s.ok});render()}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(b)act(b.dataset.a,b.dataset.v)});
+document.addEventListener("input",e=>{const t=e.target,n=t.name;if(view==='share'&&n==='inp'){sh.inp=t.value;return}if(view==="add"&&n){const m=n.match(/^([cw])(\d)$/);if(m)draft[m[1]][+m[2]]=t.value;else if(n in draft)draft[n]=t.value}});
+document.addEventListener("change",e=>{const t=e.target,n=t.name;
+  if(view==="add"&&n&&t.dataset.r){draft[n]=t.value;render()}
+  else if(view==='share'){if(t.dataset.e){sh.eras=t.checked?[...sh.eras,t.dataset.e]:sh.eras.filter(x=>x!==t.dataset.e)}else if(n==='k')sh.kind=t.value}else if(view==="setup"){if(t.dataset.e){cfg.eras=t.checked?[...cfg.eras,t.dataset.e]:cfg.eras.filter(x=>x!==t.dataset.e)}else if(n==="k")cfg.kind=t.value;else if(n==="n")cfg.n=+t.value;else if(n==="ord")cfg.ord=t.value;else if(n==="scope")cfg.scope=t.value}});
+init();
+</script></body></html>
